@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meine Top 10</title>
+<style>
+:root{--bg:#0f1016;--card:#181a23;--line:#2b2e3b;--tx:#eceef5;--mu:#98a0b6;--ac:#8aa4ff;--gold:#e8bb4d;--silver:#c5ccda;--bronze:#cd8b5b;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:880px;margin:0 auto;padding:24px 16px 64px}
+h1{font:600 clamp(2rem,6vw,3rem)/1.1 Georgia,"Iowan Old Style",serif;letter-spacing:-.02em;margin:0 0 18px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.tabs{display:flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
+.tab{flex:1;padding:10px;border:0;border-radius:10px;background:none;color:var(--mu);font-weight:600;transition:.2s}
+.tab:hover{color:var(--tx)}
+.tab[aria-selected=true]{background:var(--ac);color:#0f1016}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.bar input,.bar select,.f input,.f select,.f textarea{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 12px;width:100%}
+.bar input{flex:2 1 180px;width:auto}.bar select{flex:1 1 130px;width:auto}
+.btn{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 14px;transition:.2s}
+.btn:hover{border-color:var(--ac);transform:translateY(-1px)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#0f1016;font-weight:600}
+.btn.warn:hover{border-color:#ff7a7a;color:#ff9b9b}
+.slot{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-bottom:10px;transition:transform .2s,border-color .2s,box-shadow .2s}
+.slot:hover{transform:translateY(-2px);border-color:#444963;box-shadow:0 8px 24px #0006}
+.rk{font:600 2.4rem/1 Georgia,serif;color:var(--mu);text-align:center}
+.s1{--c:var(--gold)}.s2{--c:var(--silver)}.s3{--c:var(--bronze)}
+.top{border-left:5px solid var(--c);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 12%,var(--card)),var(--card) 65%)}
+.top .rk{color:var(--c);font-size:2.9rem}
+.top .tt{font-size:1.25rem}
+.empty{border-style:dashed;background:none;color:var(--mu)}
+.empty:hover{box-shadow:none}
+.tt{font-weight:650;font-size:1.08rem;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center}
+.pill{font-size:.78rem;padding:2px 10px;border-radius:99px;border:1px solid var(--line);color:var(--mu)}
+.pill.r{color:var(--tx);border-color:var(--ac);background:#8aa4ff1c;font-weight:600}
+.pill.b{border-color:var(--bc);color:var(--bc);background:color-mix(in srgb,var(--bc) 12%,transparent);font-weight:600}
+.note{margin:8px 0 0;color:var(--mu);font-size:.92rem}
+.act{display:flex;gap:4px}
+.ic{width:34px;height:34px;border:1px solid var(--line);background:none;border-radius:9px;transition:.2s}
+.ic:hover:not(:disabled){border-color:var(--ac);background:#8aa4ff1c}
+.ic:disabled{opacity:.3;cursor:default}
+.drag{opacity:.4}.over{outline:2px dashed var(--ac);outline-offset:2px}
+.none{text-align:center;color:var(--mu);padding:30px}
+dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:20px;padding:22px;width:min(520px,calc(100% - 24px))}
+dialog::backdrop{background:#000a;backdrop-filter:blur(3px)}
+dialog h2{margin:0 0 14px;font:600 1.4rem Georgia,serif}
+.f{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.f label{display:grid;gap:4px;font-size:.85rem;color:var(--mu)}
+.f .w{grid-column:1/-1}
+.f textarea{min-height:80px;resize:vertical}
+.f .end{display:flex;gap:8px;justify-content:flex-end}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ac);color:#0f1016;padding:9px 16px;border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s}
+#toast.on{opacity:1}
+@media(max-width:560px){.slot{grid-template-columns:48px 1fr}.act{grid-column:1/-1;justify-content:flex-end}.rk{font-size:1.9rem}.f{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Meine Top 10</h1>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="bar">
+    <input id="q" type="search" placeholder="Titel suchen …" aria-label="Titel suchen">
+    <select id="g" aria-label="Nach Genre filtern"></select>
+    <button class="btn" id="exp">JSON Export</button>
+    <button class="btn" id="imp">JSON Import</button>
+    <button class="btn warn" id="clr" hidden>Beispieldaten löschen</button>
+  </div>
+  <main id="list"></main>
+</div>
+
+<dialog id="dlg">
+  <h2 id="dt"></h2>
+  <form class="f" id="form">
+    <label class="w">Titel<input name="title" required maxlength="120"></label>
+    <label>Rang<select name="rank"></select></label>
+    <label>Bewertung (1–10)<input name="rating" type="number" min="1" max="10" step="0.1" placeholder="z. B. 9.5"></label>
+    <label class="w">Genres (mit Komma trennen)<input name="genres" placeholder="Drama, Thriller"></label>
+    <label class="w">Status<select name="badge"></select></label>
+    <label class="w">Notiz / Begründung<textarea name="note" maxlength="500"></textarea></label>
+    <div class="w end"><button type="button" class="btn" id="cancel">Abbrechen</button><button class="btn pri">Speichern</button></div>
+  </form>
+</dialog>
+<input type="file" id="file" accept="application/json,.json" hidden>
+<div id="toast" role="status"></div>
+
+<script>
+const CATS={series:"Serien",movies:"Filme",anime:"Anime"};
+const BADGES=["","Meisterwerk","Rewatch-Pflicht","Geheimtipp","Guilty Pleasure","Comfort-Favorit"];
+const BC=["","#e8bb4d","#8aa4ff","#6fd3b0","#e58fb4","#f0a45d"];
+const KEY="top10-v1";
+const $=s=>document.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
+const h=(t,a={},...c)=>{const e=document.createElement(t);for(const k in a){const v=a[k];if(v==null||v===false)continue;k==="class"?e.className=v:k.startsWith("on")?e.addEventListener(k.slice(2),v):e.setAttribute(k,v===true?"":v)}e.append(...c);return e};
+const S=(title,genres,rating,badge,note)=>({id:uid(),title,genres,rating,badge,note,sample:true});
+
+function clean(arr){return Array.from({length:10},(_,i)=>{const x=arr&&arr[i];if(!x||typeof x.title!=="string"||!x.title.trim())return null;const r=x.rating===""||x.rating==null?null:+x.rating;return{id:String(x.id||uid()),title:x.title.slice(0,120),genres:Array.isArray(x.genres)?x.genres.map(g=>String(g).slice(0,30)).slice(0,8):[],rating:isFinite(r)&&r!==null?Math.min(10,Math.max(1,r)):null,badge:BADGES.includes(x.badge)?x.badge:"",note:String(x.note||"").slice(0,500),sample:!!x.sample}})}
+function seed(){const d={series:clean([S("Beispiel-Serie A",["Drama","Krimi"],9.4,"Meisterwerk","Platzhalter: Hier steht deine Begründung."),S("Beispiel-Serie B",["Sci-Fi"],8.7,"Rewatch-Pflicht","Perfekt zum nochmal Schauen."),S("Beispiel-Serie C",["Comedy"],8.1,"","Kurzer Platzhalter.")]),
+movies:clean([S("Beispiel-Film A",["Thriller"],9.2,"Meisterwerk","Platzhalter-Notiz."),S("Beispiel-Film B",["Drama"],8.8,"Geheimtipp","Wenig bekannt, aber stark."),S("Beispiel-Film C",["Action","Abenteuer"],8.0,"","")]),
+anime:clean([S("Beispiel-Anime A",["Action","Fantasy"],9.5,"Rewatch-Pflicht","Platzhalter-Notiz."),S("Beispiel-Anime B",["Slice of Life"],8.6,"Geheimtipp","Entspannt und warm."),S("Beispiel-Anime C",["Sci-Fi","Drama"],8.2,"","")])};return d}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);return Object.fromEntries(Object.keys(CATS).map(k=>[k,clean(d[k])]))}}catch(e){}return seed()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){toast("Speichern im Browser nicht möglich")}}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),2200)}
+
+let db=load(),cat="series",q="",genre="",dragIdx=null,editIdx=null;
+if(!localStorage.getItem(KEY))save();
+
+function render(){
+  const tabs=$("#tabs");tabs.replaceChildren(...Object.entries(CATS).map(([k,v])=>h("button",{class:"tab",role:"tab","aria-selected":k===cat,onclick:()=>{cat=k;genre="";render()}},v)));
+  const L=db[cat],all=[...new Set(L.filter(Boolean).flatMap(x=>x.genres))].sort((a,b)=>a.localeCompare(b,"de"));
+  if(!all.includes(genre))genre="";
+  $("#g").replaceChildren(h("option",{value:""},"Alle Genres"),...all.map(g=>h("option",{value:g,selected:g===genre},g)));
+  $("#clr").hidden=!Object.values(db).some(l=>l.some(x=>x&&x.sample));
+  const filtering=!!(q||genre),box=$("#list");box.replaceChildren();let shown=0;
+  L.forEach((it,i)=>{
+    const rank=i+1,cls="slot"+(rank<=3?` top s${rank}`:"")+(it?"":" empty");
+    if(filtering&&(!it||!(it.title.toLowerCase().includes(q)&&(!genre||it.genres.includes(genre)))))return;
+    shown++;
+    const el=h("div",{class:cls,draggable:!filtering&&"true",ondragstart:e=>{dragIdx=i;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",i);el.classList.add("drag")},ondragend:()=>{el.classList.remove("drag");dragIdx=null},ondragover:e=>{if(dragIdx!==null){e.preventDefault();el.classList.add("over")}},ondragleave:()=>el.classList.remove("over"),ondrop:e=>{e.preventDefault();el.classList.remove("over");if(dragIdx!==null&&dragIdx!==i)swap(dragIdx,i)}},h("div",{class:"rk"},String(rank)));
+    if(!it){el.append(h("div",{},"Platz frei"),h("div",{class:"act"},h("button",{class:"btn",onclick:()=>openDlg(null,i)},"Eintrag hinzufügen")));box.append(el);return}
+    const meta=h("div",{class:"meta"});
+    if(it.rating!=null)meta.append(h("span",{class:"pill r"},"★ "+String(it.rating).replace(".",",")));
+    if(it.badge)meta.append(h("span",{class:"pill b",style:`--bc:${BC[BADGES.indexOf(it.badge)]}`},it.badge));
+    it.genres.forEach(g=>meta.append(h("span",{class:"pill"},g)));
+    const body=h("div",{},h("div",{class:"tt"},it.title),meta);
+    if(it.note)body.append(h("p",{class:"note"},it.note));
+    const ib=(t,l,fn,dis)=>h("button",{class:"ic","aria-label":l,title:l,disabled:dis,onclick:fn},t);
+    el.append(body,h("div",{class:"act"},ib("▲","Nach oben",()=>swap(i,i-1),i===0),ib("▼","Nach unten",()=>swap(i,i+1),i===9),ib("✎","Bearbeiten",()=>openDlg(i)),ib("✕","Entfernen",()=>remove(i))));
+    box.append(el);
+  });
+  if(!shown)box.append(h("div",{class:"none"},"Keine Treffer in dieser Kategorie."));
+}
+function swap(a,b){const L=db[cat];[L[a],L[b]]=[L[b],L[a]];save();render()}
+function remove(i){const it=db[cat][i];if(confirm(`„${it.title}“ von Platz ${i+1} entfernen?`)){db[cat][i]=null;save();render()}}
+
+const dlg=$("#dlg"),F=$("#form");
+function openDlg(idx,rank){
+  editIdx=idx;const it=idx!=null?db[cat][idx]:null;
+  $("#dt").textContent=it?"Eintrag bearbeiten":"Neuer Eintrag – "+CATS[cat];
+  F.rank.replaceChildren(...Array.from({length:10},(_,i)=>h("option",{value:i+1},String(i+1))));
+  F.badge.replaceChildren(...BADGES.map(b=>h("option",{value:b},b||"Kein Status")));
+  if(!rank&&rank!==0){const free=db[cat].findIndex(x=>!x);rank=idx!=null?idx:free<0?0:free}
+  F.title.value=it?it.title:"";F.rank.value=idx!=null?idx+1:rank+1;F.rating.value=it&&it.rating!=null?it.rating:"";
+  F.genres.value=it?it.genres.join(", "):"";F.badge.value=it?it.badge:"";F.note.value=it?it.note:"";
+  dlg.showModal();F.title.focus();
+}
+F.addEventListener("submit",e=>{
+  e.preventDefault();const L=db[cat],t=+F.rank.value-1,old=editIdx!=null?L[editIdx]:null,r=F.rating.value;
+  const it={id:old?old.id:uid(),title:F.title.value.trim(),genres:F.genres.value.split(",").map(s=>s.trim()).filter(Boolean).slice(0,8),rating:r===""?null:Math.min(10,Math.max(1,+r)),badge:F.badge.value,note:F.note.value.trim()};
+  if(!it.title)return;
+  if(editIdx!=null){if(t!==editIdx)L[editIdx]=L[t];L[t]=it}
+  else{
+    if(L[t]){let j=L.findIndex((x,k)=>k>t&&!x);
+      if(j<0){if(!confirm("Die Liste ist voll – der Eintrag auf Platz 10 fällt heraus. Fortfahren?"))return;j=9}
+      for(let k=j;k>t;k--)L[k]=L[k-1]}
+    L[t]=it}
+  save();dlg.close();render();
+});
+$("#cancel").onclick=()=>dlg.close();
+
+$("#q").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};
+$("#g").onchange=e=>{genre=e.target.value;render()};
+$("#clr").onclick=()=>{if(!confirm("Alle Beispieleinträge in allen Kategorien löschen?"))return;for(const k in db)db[k]=db[k].map(x=>x&&x.sample?null:x);save();render();toast("Beispieldaten gelöscht")};
+
+$("#exp").onclick=()=>{
+  const blob=new Blob([JSON.stringify({version:1,exported:new Date().toISOString(),data:db},null,2)],{type:"application/json"});
+  const a=h("a",{href:URL.createObjectURL(blob),download:`top10-backup-${new Date().toISOString().slice(0,10)}.json`});
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast("Export gestartet");
+};
+$("#imp").onclick=()=>$("#file").click();
+$("#file").onchange=async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  try{
+    const j=JSON.parse(await f.text()),d=j.data||j;
+    if(!Object.keys(CATS).some(k=>Array.isArray(d[k])))throw 0;
+    if(!confirm("Aktuelle Listen durch die importierten Daten ersetzen?"))return;
+    db=Object.fromEntries(Object.keys(CATS).map(k=>[k,clean(d[k])]));save();render();toast("Import erfolgreich");
+  }catch(err){toast("Ungültige JSON-Datei")}
+};
+render();
+</script>
+</body>
+</html>
