@@ -7,14 +7,15 @@
 <style>
 :root{--bg:#0f1016;--card:#181a23;--line:#2b2e3b;--tx:#eceef5;--mu:#98a0b6;--ac:#8aa4ff;--gold:#e8bb4d;--silver:#c5ccda;--bronze:#cd8b5b;color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .wrap{max-width:880px;margin:0 auto;padding:24px 16px 64px}
 h1{font:600 clamp(2rem,6vw,3rem)/1.1 Georgia,"Iowan Old Style",serif;letter-spacing:-.02em;margin:0 0 18px}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--ac);outline-offset:2px}
-.tabs{display:flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
-.tab{flex:1;padding:10px;border:0;border-radius:10px;background:none;color:var(--mu);font-weight:600;transition:.2s}
+.tabs{display:flex;overflow-x:auto;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
+.tab{flex:1;padding:10px 12px;white-space:nowrap;border:0;border-radius:10px;background:none;color:var(--mu);font-weight:600;transition:.2s}
 .tab:hover{color:var(--tx)}
 .tab[aria-selected=true]{background:var(--ac);color:#0f1016}
 .bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
@@ -55,7 +56,11 @@ dialog h2{margin:0 0 14px;font:600 1.4rem Georgia,serif}
 .f .end{display:flex;gap:8px;justify-content:flex-end}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ac);color:#0f1016;padding:9px 16px;border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s}
 #toast.on{opacity:1}
-@media(max-width:560px){.slot{grid-template-columns:48px 1fr}.act{grid-column:1/-1;justify-content:flex-end}.rk{font-size:1.9rem}.f{grid-template-columns:1fr}}
+.wc{grid-template-columns:1fr auto}.wc .act{flex-wrap:wrap;justify-content:flex-end}
+.pg{height:6px;border-radius:9px;background:var(--line);margin-top:10px;overflow:hidden}.pg i{display:block;height:100%;background:var(--ac);border-radius:9px;transition:width .3s}
+.pick{border-color:var(--ac);box-shadow:0 0 0 2px var(--ac),0 10px 30px #8aa4ff33}
+#wst{flex:1 1 100%;margin:0}#wst .tab{flex:0 0 auto;padding:8px 14px}
+@media(max-width:560px){.slot{grid-template-columns:48px 1fr}.wc{grid-template-columns:1fr}.act{grid-column:1/-1;justify-content:flex-end}.rk{font-size:1.9rem}.f{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -69,6 +74,12 @@ dialog h2{margin:0 0 14px;font:600 1.4rem Georgia,serif}
     <button class="btn" id="exp">JSON Export</button>
     <button class="btn" id="imp">JSON Import</button>
     <button class="btn warn" id="clr" hidden>Beispieldaten löschen</button>
+  </div>
+  <div class="bar" id="wbar" hidden>
+    <div class="tabs" id="wst" role="tablist"></div>
+    <select id="wt" aria-label="Typ filtern"><option value="">Alle Typen</option><option value="anime">Anime</option><option value="series">Serie</option><option value="movie">Film</option></select>
+    <button class="btn" id="wrnd" title="Was schau ich jetzt?">Zufälligen Titel vorschlagen</button>
+    <button class="btn pri" id="wnew">Neuer Eintrag</button>
   </div>
   <main id="list"></main>
 </div>
@@ -85,11 +96,28 @@ dialog h2{margin:0 0 14px;font:600 1.4rem Georgia,serif}
     <div class="w end"><button type="button" class="btn" id="cancel">Abbrechen</button><button class="btn pri">Speichern</button></div>
   </form>
 </dialog>
+
+<dialog id="wdlg">
+  <h2 id="wdt"></h2>
+  <form class="f" id="wform">
+    <label class="w">Titel<input name="title" required maxlength="120"></label>
+    <label>Typ<select name="type"></select></label>
+    <label>Status<select name="status"></select></label>
+    <label class="e">Staffel<input name="season" type="number" min="1" value="1"></label>
+    <label class="e">Aktuelle Episode<input name="ep" type="number" min="0" value="0"></label>
+    <label class="w e">Episoden gesamt (optional)<input name="total" type="number" min="1"></label>
+    <label class="w">Notiz<textarea name="note" maxlength="300" placeholder="z. B. Ab Folge 14 geht der nächste Arc los"></textarea></label>
+    <div class="w end"><button type="button" class="btn" id="wcancel">Abbrechen</button><button class="btn pri">Speichern</button></div>
+  </form>
+</dialog>
 <input type="file" id="file" accept="application/json,.json" hidden>
 <div id="toast" role="status"></div>
 
 <script>
 const CATS={series:"Serien",movies:"Filme",anime:"Anime"};
+const TABS={...CATS,watch:"Watchlist & Status"};
+const TY={anime:"Anime",series:"Serie",movie:"Film"},TYCAT={anime:"anime",series:"series",movie:"movies"},TYC={anime:"#e58fb4",series:"#8aa4ff",movie:"#6fd3b0"};
+const ST={watching:"Schau ich gerade",planned:"Geplant",paused:"Pausiert",done:"Abgeschlossen"};
 const BADGES=["","Meisterwerk","Rewatch-Pflicht","Geheimtipp","Guilty Pleasure","Comfort-Favorit"];
 const BC=["","#e8bb4d","#8aa4ff","#6fd3b0","#e58fb4","#f0a45d"];
 const KEY="top10-v1";
@@ -97,24 +125,29 @@ const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
 const h=(t,a={},...c)=>{const e=document.createElement(t);for(const k in a){const v=a[k];if(v==null||v===false)continue;k==="class"?e.className=v:k.startsWith("on")?e.addEventListener(k.slice(2),v):e.setAttribute(k,v===true?"":v)}e.append(...c);return e};
 const S=(title,genres,rating,badge,note)=>({id:uid(),title,genres,rating,badge,note,sample:true});
+const W=(title,type,status,season,ep,total,note)=>({id:uid(),title,type,status,season,ep,total,note,sample:true});
+function cleanW(a){return(Array.isArray(a)?a:[]).slice(0,500).filter(x=>x&&typeof x.title==="string"&&x.title.trim()).map(x=>{const f=x.type==="movie";return{id:String(x.id||uid()),title:x.title.slice(0,120),type:Object.keys(TY).includes(x.type)?x.type:"series",status:Object.keys(ST).includes(x.status)?x.status:"planned",season:f?1:Math.max(1,parseInt(x.season)||1),ep:f?0:Math.max(0,parseInt(x.ep)||0),total:f?null:(parseInt(x.total)||null),note:String(x.note||"").slice(0,300),sample:!!x.sample}})}
 
 function clean(arr){return Array.from({length:10},(_,i)=>{const x=arr&&arr[i];if(!x||typeof x.title!=="string"||!x.title.trim())return null;const r=x.rating===""||x.rating==null?null:+x.rating;return{id:String(x.id||uid()),title:x.title.slice(0,120),genres:Array.isArray(x.genres)?x.genres.map(g=>String(g).slice(0,30)).slice(0,8):[],rating:isFinite(r)&&r!==null?Math.min(10,Math.max(1,r)):null,badge:BADGES.includes(x.badge)?x.badge:"",note:String(x.note||"").slice(0,500),sample:!!x.sample}})}
 function seed(){const d={series:clean([S("Beispiel-Serie A",["Drama","Krimi"],9.4,"Meisterwerk","Platzhalter: Hier steht deine Begründung."),S("Beispiel-Serie B",["Sci-Fi"],8.7,"Rewatch-Pflicht","Perfekt zum nochmal Schauen."),S("Beispiel-Serie C",["Comedy"],8.1,"","Kurzer Platzhalter.")]),
 movies:clean([S("Beispiel-Film A",["Thriller"],9.2,"Meisterwerk","Platzhalter-Notiz."),S("Beispiel-Film B",["Drama"],8.8,"Geheimtipp","Wenig bekannt, aber stark."),S("Beispiel-Film C",["Action","Abenteuer"],8.0,"","")]),
-anime:clean([S("Beispiel-Anime A",["Action","Fantasy"],9.5,"Rewatch-Pflicht","Platzhalter-Notiz."),S("Beispiel-Anime B",["Slice of Life"],8.6,"Geheimtipp","Entspannt und warm."),S("Beispiel-Anime C",["Sci-Fi","Drama"],8.2,"","")])};return d}
-function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);return Object.fromEntries(Object.keys(CATS).map(k=>[k,clean(d[k])]))}}catch(e){}return seed()}
+anime:clean([S("Beispiel-Anime A",["Action","Fantasy"],9.5,"Rewatch-Pflicht","Platzhalter-Notiz."),S("Beispiel-Anime B",["Slice of Life"],8.6,"Geheimtipp","Entspannt und warm."),S("Beispiel-Anime C",["Sci-Fi","Drama"],8.2,"","")]),
+watch:cleanW([W("Beispiel-Anime (läuft)","anime","watching",1,12,24,"Ab Folge 14 geht der nächste Arc los"),W("Beispiel-Serie (geplant)","series","planned",1,0,10,""),W("Beispiel-Serie (pausiert)","series","paused",2,5,8,"Nach der Prüfungsphase weiterschauen"),W("Beispiel-Film (gesehen)","movie","done",1,0,null,"Bereit für die Top 10")])};return d}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);return{...Object.fromEntries(Object.keys(CATS).map(k=>[k,clean(d[k])])),watch:cleanW(d.watch)}}}catch(e){}return seed()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){toast("Speichern im Browser nicht möglich")}}
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),2200)}
 
-let db=load(),cat="series",q="",genre="",dragIdx=null,editIdx=null;
+let db=load(),cat="series",q="",genre="",dragIdx=null,editIdx=null,wst="",wty="",pickId=null;
 if(!localStorage.getItem(KEY))save();
 
 function render(){
-  const tabs=$("#tabs");tabs.replaceChildren(...Object.entries(CATS).map(([k,v])=>h("button",{class:"tab",role:"tab","aria-selected":k===cat,onclick:()=>{cat=k;genre="";render()}},v)));
+  const tabs=$("#tabs");tabs.replaceChildren(...Object.entries(TABS).map(([k,v])=>h("button",{class:"tab",role:"tab","aria-selected":k===cat,onclick:()=>{cat=k;genre="";pickId=null;render()}},v)));
+  const isW=cat==="watch";$("#g").hidden=isW;$("#wbar").hidden=!isW;
+  $("#clr").hidden=!Object.values(db).some(l=>l.some(x=>x&&x.sample));
+  if(isW)return renderWatch();
   const L=db[cat],all=[...new Set(L.filter(Boolean).flatMap(x=>x.genres))].sort((a,b)=>a.localeCompare(b,"de"));
   if(!all.includes(genre))genre="";
   $("#g").replaceChildren(h("option",{value:""},"Alle Genres"),...all.map(g=>h("option",{value:g,selected:g===genre},g)));
-  $("#clr").hidden=!Object.values(db).some(l=>l.some(x=>x&&x.sample));
   const filtering=!!(q||genre),box=$("#list");box.replaceChildren();let shown=0;
   L.forEach((it,i)=>{
     const rank=i+1,cls="slot"+(rank<=3?` top s${rank}`:"")+(it?"":" empty");
@@ -164,7 +197,7 @@ $("#cancel").onclick=()=>dlg.close();
 
 $("#q").oninput=e=>{q=e.target.value.trim().toLowerCase();render()};
 $("#g").onchange=e=>{genre=e.target.value;render()};
-$("#clr").onclick=()=>{if(!confirm("Alle Beispieleinträge in allen Kategorien löschen?"))return;for(const k in db)db[k]=db[k].map(x=>x&&x.sample?null:x);save();render();toast("Beispieldaten gelöscht")};
+$("#clr").onclick=()=>{if(!confirm("Alle Beispieleinträge in allen Kategorien löschen?"))return;for(const k of Object.keys(CATS))db[k]=db[k].map(x=>x&&x.sample?null:x);db.watch=db.watch.filter(x=>!x.sample);save();render();toast("Beispieldaten gelöscht")};
 
 $("#exp").onclick=()=>{
   const blob=new Blob([JSON.stringify({version:1,exported:new Date().toISOString(),data:db},null,2)],{type:"application/json"});
@@ -176,10 +209,76 @@ $("#file").onchange=async e=>{
   const f=e.target.files[0];e.target.value="";if(!f)return;
   try{
     const j=JSON.parse(await f.text()),d=j.data||j;
-    if(!Object.keys(CATS).some(k=>Array.isArray(d[k])))throw 0;
+    if(!Object.keys(TABS).some(k=>Array.isArray(d[k])))throw 0;
     if(!confirm("Aktuelle Listen durch die importierten Daten ersetzen?"))return;
-    db=Object.fromEntries(Object.keys(CATS).map(k=>[k,clean(d[k])]));save();render();toast("Import erfolgreich");
+    db={...Object.fromEntries(Object.keys(CATS).map(k=>[k,clean(d[k])])),watch:Array.isArray(d.watch)?cleanW(d.watch):db.watch};save();render();toast("Import erfolgreich");
   }catch(err){toast("Ungültige JSON-Datei")}
+};
+
+/* ---------- Watchlist & Status ---------- */
+function renderWatch(){
+  $("#wst").replaceChildren(...[["","Alle"],...Object.entries(ST)].map(([k,v])=>h("button",{class:"tab",role:"tab","aria-selected":k===wst,onclick:()=>{wst=k;pickId=null;render()}},v)));
+  $("#wt").value=wty;
+  const box=$("#list"),order=Object.keys(ST);box.replaceChildren();
+  const items=db.watch.filter(x=>(!wst||x.status===wst)&&(!wty||x.type===wty)&&x.title.toLowerCase().includes(q)).sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status));
+  if(!items.length)box.append(h("div",{class:"none"},db.watch.length?"Keine Treffer mit diesen Filtern.":"Noch keine Einträge – lege mit „Neuer Eintrag“ deinen ersten Titel an."));
+  items.forEach(it=>{
+    const film=it.type==="movie",pct=it.total?Math.min(100,Math.round(it.ep/it.total*100)):null;
+    const meta=h("div",{class:"meta"},h("span",{class:"pill b",style:`--bc:${TYC[it.type]}`},TY[it.type]),h("span",{class:"pill"},ST[it.status]));
+    if(!film)meta.append(h("span",{class:"pill r"},`S${it.season} · Ep. ${it.ep}${it.total?" / "+it.total:""}`));
+    const body=h("div",{},h("div",{class:"tt"},it.title),meta);
+    if(pct!=null)body.append(h("div",{class:"pg",role:"progressbar","aria-valuemin":0,"aria-valuemax":100,"aria-valuenow":pct},h("i",{style:`width:${pct}%`})));
+    if(it.note)body.append(h("p",{class:"note"},it.note));
+    const ib=(t,l,fn)=>h("button",{class:"ic","aria-label":l,title:l,onclick:fn},t);
+    const act=h("div",{class:"act"});
+    if(!film&&it.status!=="done")act.append(h("button",{class:"btn pri",onclick:()=>plus(it)},"+1 Episode"));
+    if(it.status==="done")act.append(h("button",{class:"btn",onclick:()=>toTop(it)},"In Top 10 übernehmen"));
+    act.append(ib("✎","Bearbeiten",()=>openW(it)),ib("✕","Entfernen",()=>{if(confirm(`„${it.title}“ aus der Watchlist entfernen?`)){db.watch=db.watch.filter(x=>x!==it);save();render()}}));
+    box.append(h("div",{class:"slot wc"+(it.id===pickId?" pick":""),"data-id":it.id},body,act));
+  });
+}
+function plus(it){
+  it.ep++;if(it.status==="planned"||it.status==="paused")it.status="watching";
+  if(it.total&&it.ep>=it.total){it.ep=it.total;it.status="done";toast(`„${it.title}“ abgeschlossen`)}
+  save();render();
+}
+function toTop(it){
+  const k=TYCAT[it.type],L=db[k];
+  if(L.some(x=>x&&x.title.toLowerCase()===it.title.toLowerCase()))return toast("Schon in der Top 10 ("+CATS[k]+")");
+  const i=L.findIndex(x=>!x);
+  if(i<0)return toast("Top 10 ("+CATS[k]+") ist voll – erst einen Platz freimachen");
+  L[i]={id:uid(),title:it.title,genres:[],rating:null,badge:"",note:it.note};
+  save();toast(`In Top 10 (${CATS[k]}) auf Platz ${i+1} übernommen`);
+}
+const wd=$("#wdlg"),WF=$("#wform");let wEdit=null;
+WF.type.replaceChildren(...Object.entries(TY).map(([k,v])=>h("option",{value:k},v)));
+WF.status.replaceChildren(...Object.entries(ST).map(([k,v])=>h("option",{value:k},v)));
+const wEp=()=>WF.querySelectorAll(".e").forEach(e=>e.hidden=WF.type.value==="movie");
+WF.type.onchange=wEp;
+function openW(it){
+  wEdit=it||null;$("#wdt").textContent=it?"Eintrag bearbeiten":"Neuer Eintrag – Watchlist";
+  WF.title.value=it?it.title:"";WF.type.value=it?it.type:"series";WF.status.value=it?it.status:"planned";
+  WF.season.value=it?it.season:1;WF.ep.value=it?it.ep:0;WF.total.value=it&&it.total?it.total:"";WF.note.value=it?it.note:"";
+  wEp();wd.showModal();WF.title.focus();
+}
+WF.addEventListener("submit",e=>{
+  e.preventDefault();const t=WF.title.value.trim();if(!t)return;
+  const film=WF.type.value==="movie",tot=film?null:(parseInt(WF.total.value)||null);
+  let ep=film?0:Math.max(0,parseInt(WF.ep.value)||0);if(tot)ep=Math.min(ep,tot);
+  const o={id:wEdit?wEdit.id:uid(),title:t,type:WF.type.value,status:WF.status.value,season:film?1:Math.max(1,parseInt(WF.season.value)||1),ep,total:tot,note:WF.note.value.trim(),sample:false};
+  if(wEdit)Object.assign(wEdit,o);else db.watch.push(o);
+  save();wd.close();render();
+});
+$("#wcancel").onclick=()=>wd.close();
+$("#wnew").onclick=()=>openW();
+$("#wt").onchange=e=>{wty=e.target.value;pickId=null;render()};
+$("#wrnd").onclick=()=>{
+  const c=db.watch.filter(x=>x.status==="watching"||x.status==="planned");
+  if(!c.length)return toast("Keine Titel mit „Schau ich gerade“ oder „Geplant“");
+  const pool=c.length>1?c.filter(x=>x.id!==pickId):c,p=pool[Math.floor(Math.random()*pool.length)];
+  pickId=p.id;wst="";wty="";q="";$("#q").value="";render();
+  const el=document.querySelector(".pick");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});
+  toast("Vorschlag: "+p.title);
 };
 render();
 </script>
