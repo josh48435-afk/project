@@ -238,13 +238,13 @@ body[data-cat=lib]{--ac:#ff3b5c;--ac2:#ff8a3d}
     </div>
     <div class="kp" id="lkey" hidden>
       <b>TMDB-Schlüssel für Filme &amp; Serien</b>
-      <p>Die Bibliothek nutzt TMDB (kostenlos). Erstelle unter <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org → Einstellungen → API</a> einen Schlüssel und füge ihn hier ein. Anime laufen ohne Schlüssel über Jikan (MyAnimeList). Der Schlüssel bleibt nur in diesem Browser und wird nicht mit exportiert.</p>
+      <p>Die Bibliothek nutzt TMDB (kostenlos). Erstelle unter <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org → Einstellungen → API</a> einen Schlüssel und füge ihn hier ein. Anime laufen ohne Schlüssel über die Tenrai-API (MyAnimeList-Katalog). Der Schlüssel bleibt nur in diesem Browser und wird nicht mit exportiert.</p>
       <div class="row"><input id="lk" placeholder="API-Schlüssel (v3) oder Read Access Token" autocomplete="off"><button class="btn pri" id="lks">Speichern</button></div>
     </div>
     <div class="lgrid" id="lgrid"></div>
     <div class="none" id="lmsg" role="status"></div>
     <div id="lsent" style="height:1px"></div>
-    <p class="attr">Daten von TMDB und Jikan/MyAnimeList. Dieses Produkt nutzt die TMDB-API, wird aber nicht von TMDB unterstützt oder zertifiziert.</p>
+    <p class="attr">Daten von TMDB und Tenrai (MyAnimeList-Katalog). Dieses Produkt nutzt die TMDB-API, wird aber nicht von TMDB unterstützt oder zertifiziert.</p>
   </section>
 </div>
 
@@ -501,7 +501,7 @@ function celebrate(id){
   el.scrollIntoView({block:"center"});const r=el.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2);toast("Eintrag hinzugefügt ✓");
 }
 
-/* ---------- Bibliothek: TMDB + Jikan ---------- */
+/* ---------- Bibliothek: TMDB + Tenrai (Jikan-v4-kompatibel) ---------- */
 function safeUrl(u){return /^https:\/\/(image\.tmdb\.org|cdn\.myanimelist\.net)\//.test(u||"")?u:""}
 function norm(t){return String(t).toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ").trim()}
 const KEYS=(()=>{try{return JSON.parse(localStorage.getItem("top10-keys"))||{}}catch(e){return{}}})();
@@ -521,10 +521,10 @@ async function tm(path,params={}){
   const r=await fetch(u,o);if(!r.ok)throw new Error(r.status===401?"badkey":"http"+r.status);return r.json();
 }
 async function jk(path,params={}){
-  const u=new URL("https://api.jikan.moe/v4"+path);
+  const u=new URL("https://api.tenrai.org/v1"+path);
   for(const x in params)if(params[x]!=null&&params[x]!=="")u.searchParams.set(x,params[x]);
-  const at=Math.max(Date.now(),jikT+380);jikT=at;await sleep(at-Date.now());
-  let r=await fetch(u);if(r.status===429){await sleep(1300);r=await fetch(u)}
+  const at=Math.max(Date.now(),jikT+300);jikT=at;await sleep(at-Date.now());
+  let r=await fetch(u);if(r.status===429){await sleep(Math.min(parseFloat(r.headers.get("Retry-After"))||2,10)*1000);r=await fetch(u)}
   if(!r.ok)throw new Error("http"+r.status);return r.json();
 }
 const nTm=(x,k)=>({ref:`tmdb:${k}:${x.id}`,type:k==="movie"?"movie":"series",title:x.title||x.name,orig:x.original_title||x.original_name,year:(x.release_date||x.first_air_date||"").slice(0,4),poster:x.poster_path?IMG+"w342"+x.poster_path:"",rating:x.vote_count?+x.vote_average.toFixed(1):null,overview:x.overview||""});
